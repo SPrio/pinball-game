@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pinball Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .game-container {
+            background: #1a1a2e;
+            border: 3px solid #16213e;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 100vw;
+            max-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        #gameCanvas {
+            border: 2px solid #0f3460;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #0f1419 0%, #1a1a2e 100%);
+            display: block;
+            max-width: calc(100vw - 60px);
+            max-height: calc(100vh - 180px);
+            width: auto;
+            height: auto;
+        }
+
+        .controls {
+            margin-top: 10px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .paddle-control {
+            width: 100%;
+            max-width: 300px;
+            margin: 5px auto;
+            text-align: center;
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        .touch-controls {
+            display: none;
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        .key-hint {
+            display: inline-block;
+            background: #16213e;
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+            padding: 3px 8px;
+            margin: 0 3px;
+            font-weight: bold;
+            color: #4CAF50;
+            font-size: 12px;
+        }
+
+        .finger-hint {
+            display: inline-block;
+            font-size: 20px;
+            margin: 0 5px;
+        }
+
+        /* Show touch controls on mobile */
+        @media (max-width: 768px) and (pointer: coarse) {
+            .paddle-control {
+                display: none;
+            }
+
+            .touch-controls {
+                display: block;
+            }
+        }
+
+        .score {
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 5px 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .instructions {
+            color: #ccc;
+            font-size: 12px;
+            margin-top: 5px;
+            text-align: center;
+            max-width: 400px;
+            line-height: 1.3;
+        }
+
+        .game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+            z-index: 10;
+        }
+
+        .overlay-content {
+            text-align: center;
+            color: white;
+            padding: 30px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 15px;
+            border: 2px solid #4CAF50;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .overlay-title {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #4CAF50;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .overlay-score {
+            font-size: 24px;
+            color: #fff;
+            margin: 15px 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .overlay-text {
+            font-size: 16px;
+            color: #ccc;
+            margin: 15px 0;
+            line-height: 1.4;
+        }
+
+        .game-button {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .game-button:hover {
+            background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .game-button:active {
+            transform: translateY(0);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Mobile adjustments for overlay */
+        @media (max-width: 600px) {
+            .overlay-title {
+                font-size: 24px;
+            }
+
+            .overlay-score {
+                font-size: 20px;
+            }
+
+            .overlay-text {
+                font-size: 14px;
+            }
+
+            .game-button {
+                padding: 12px 24px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-container">
+        <div style="position: relative;">
+            <canvas id="gameCanvas" width="600" height="800"></canvas>
+
+            <!-- Start Game Overlay -->
+            <div id="startOverlay" class="game-overlay">
+                <div class="overlay-content">
+                    <div class="overlay-title">🎯 PINBALL GAME</div>
+                    <div class="overlay-text">
+                        Use <span class="key-hint">←</span> and <span class="key-hint">→</span> arrow keys to control
+                        the paddle
+                        <br><br>
+                        Break all the blocks to score points!<br>
+                        Keep the ball from hitting the bottom!
+                    </div>
+                    <button class="game-button" onclick="startGame()">START GAME</button>
+                </div>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="gameOverOverlay" class="game-overlay hidden">
+                <div class="overlay-content">
+                    <div class="overlay-title">🎮 GAME OVER</div>
+                    <div class="overlay-score">Final Score: <span id="finalScore">0</span></div>
+                    <div class="overlay-text">
+                        Great job! You broke <span id="blocksDestroyed">0</span> blocks!
+                        <br><br>
+                        Ready for another round?
+                    </div>
+                    <button class="game-button" onclick="restartGame()">PLAY AGAIN</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="paddle-control">
+                Use <span class="key-hint">←</span> and <span class="key-hint">→</span> arrow keys to move paddle
+            </div>
+            <div class="touch-controls">
+                Touch and drag <span class="finger-hint">👆</span> on the game area to move paddle
+            </div>
+            <div class="instructions">
+                Break blocks to score • Game restarts when ball hits ground
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        // Make canvas responsive
+        function resizeCanvas() {
+            const container = document.querySelector('.game-container');
+            const maxWidth = Math.min(600, window.innerWidth - 60);
+            const maxHeight = Math.min(800, window.innerHeight - 180);
+
+            // Maintain aspect ratio (3:4)
+            let canvasWidth = maxWidth;
+            let canvasHeight = maxWidth * (4 / 3);
+
+            if (canvasHeight > maxHeight) {
+                canvasHeight = maxHeight;
+                canvasWidth = canvasHeight * (3 / 4);
+            }
+
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            canvas.style.width = canvasWidth + 'px';
+            canvas.style.height = canvasHeight + 'px';
+
+            // Update game elements based on new canvas size
+            resetGameElements();
+        }
+
+        function resetGameElements() {
+            // Update paddle position
+            paddle.x = canvas.width / 2 - paddle.width / 2;
+            paddle.y = canvas.height - 50;
+
+            // Update ball position to start from bottom
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height - 100;
+
+            // Recreate blocks with new dimensions
+            createBlocks();
+        }
+
+        // Game state
+        let score = 0;
+        let gameRunning = false; // Start with game paused
+        let gameStarted = false;
+        let blocksDestroyedCount = 0;
+
+        // Keyboard input
+        const keys = {
+            left: false,
+            right: false
+        };
+
+        // Touch input
+        let isTouching = false;
+        let lastTouchX = 0;
+
+        // Get overlay elements
+        const startOverlay = document.getElementById('startOverlay');
+        const gameOverOverlay = document.getElementById('gameOverOverlay');
+        const finalScoreElement = document.getElementById('finalScore');
+        const blocksDestroyedElement = document.getElementById('blocksDestroyed');
+
+        // Start game function
+        function startGame() {
+            startOverlay.classList.add('hidden');
+            gameStarted = true;
+            gameRunning = true;
+            resetGame();
+        }
+
+        // Restart game function
+        function restartGame() {
+            gameOverOverlay.classList.add('hidden');
+            gameRunning = true;
+            blocksDestroyedCount = 0;
+            resetGame();
+        }
+
+        // Show game over screen
+        function showGameOver() {
+            finalScoreElement.textContent = score;
+            blocksDestroyedElement.textContent = blocksDestroyedCount;
+            gameOverOverlay.classList.remove('hidden');
+        }
+
+        // Ball properties
+        let ball = {
+            x: 0, // Will be set by resizeCanvas
+            y: 0, // Will be set by resizeCanvas
+            radius: 12,
+            vx: 2, // Reduced from 3
+            vy: -3, // Reduced from -4
+            color: '#ff6b6b'
+        };
+
+        // Paddle properties
+        const paddle = {
+            width: 120,
+            height: 15,
+            x: canvas.width / 2 - 60,
+            y: canvas.height - 50,
+            color: '#4CAF50'
+        };
+
+        // Blocks array
+        let blocks = [];
+
+        // Initialize blocks
+        function createBlocks() {
+            blocks = [];
+            const rows = 6;
+            const cols = Math.floor(canvas.width / 80); // Adjust columns based on canvas width
+            const blockWidth = Math.floor((canvas.width - 70) / cols);
+            const blockHeight = Math.floor(canvas.height / 35);
+            const offsetX = (canvas.width - (cols * blockWidth + (cols - 1) * 5)) / 2;
+            const offsetY = Math.floor(canvas.height * 0.125); // 12.5% from top
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3'];
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    blocks.push({
+                        x: col * (blockWidth + 5) + offsetX,
+                        y: row * (blockHeight + 5) + offsetY,
+                        width: blockWidth,
+                        height: blockHeight,
+                        color: colors[row],
+                        destroyed: false
+                    });
+                }
+            }
+        }
+
+        // Reset game
+        function resetGame() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height - 100; // Start from bottom
+            ball.vx = (Math.random() - 0.5) * 4; // Reduced from 6
+            ball.vy = -3; // Reduced from -4
+
+            if (!gameStarted) {
+                score = 0;
+                blocksDestroyedCount = 0;
+            }
+
+            scoreElement.textContent = score;
+            createBlocks();
+            gameRunning = true;
+        }
+
+        // Update paddle position based on arrow keys or touch
+        function updatePaddle() {
+            const paddleSpeed = 8;
+
+            if (keys.left && paddle.x > 0) {
+                paddle.x -= paddleSpeed;
+            }
+            if (keys.right && paddle.x < canvas.width - paddle.width) {
+                paddle.x += paddleSpeed;
+            }
+
+            // Keep paddle within bounds
+            paddle.x = Math.max(0, Math.min(canvas.width - paddle.width, paddle.x));
+        }
+
+        // Handle touch input for paddle movement
+        function handleTouchMove(touchX) {
+            const rect = canvas.getBoundingClientRect();
+            const canvasX = (touchX - rect.left) * (canvas.width / rect.width);
+
+            // Center the paddle on the touch position
+            paddle.x = canvasX - paddle.width / 2;
+
+            // Keep paddle within bounds
+            paddle.x = Math.max(0, Math.min(canvas.width - paddle.width, paddle.x));
+        }
+
+        // Ball collision with walls
+        function handleWallCollisions() {
+            // Left and right walls
+            if (ball.x - ball.radius <= 0 || ball.x + ball.radius >= canvas.width) {
+                ball.vx = -ball.vx;
+                ball.x = Math.max(ball.radius, Math.min(canvas.width - ball.radius, ball.x));
+            }
+
+            // Top wall
+            if (ball.y - ball.radius <= 0) {
+                ball.vy = -ball.vy;
+                ball.y = ball.radius;
+            }
+
+            // Bottom wall (game over)
+            if (ball.y + ball.radius >= canvas.height) {
+                gameRunning = false;
+                setTimeout(() => {
+                    showGameOver();
+                }, 500);
+            }
+        }
+
+        // Ball collision with paddle
+        function handlePaddleCollision() {
+            if (ball.y + ball.radius >= paddle.y &&
+                ball.y - ball.radius <= paddle.y + paddle.height &&
+                ball.x >= paddle.x &&
+                ball.x <= paddle.x + paddle.width) {
+
+                // Calculate hit position for angle variation
+                const hitPos = (ball.x - paddle.x) / paddle.width;
+                const angle = (hitPos - 0.5) * Math.PI / 3; // -60 to +60 degrees
+
+                const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+                ball.vx = Math.sin(angle) * speed;
+                ball.vy = -Math.abs(Math.cos(angle) * speed);
+
+                ball.y = paddle.y - ball.radius;
+            }
+        }
+
+        // Ball collision with blocks
+        function handleBlockCollisions() {
+            for (let block of blocks) {
+                if (block.destroyed) continue;
+
+                if (ball.x + ball.radius >= block.x &&
+                    ball.x - ball.radius <= block.x + block.width &&
+                    ball.y + ball.radius >= block.y &&
+                    ball.y - ball.radius <= block.y + block.height) {
+
+                    // Determine collision side
+                    const overlapX = Math.min(ball.x + ball.radius - block.x, block.x + block.width - (ball.x - ball.radius));
+                    const overlapY = Math.min(ball.y + ball.radius - block.y, block.y + block.height - (ball.y - ball.radius));
+
+                    if (overlapX < overlapY) {
+                        ball.vx = -ball.vx;
+                    } else {
+                        ball.vy = -ball.vy;
+                    }
+
+                    block.destroyed = true;
+                    blocksDestroyedCount++;
+                    score += 10;
+                    scoreElement.textContent = score;
+                    break;
+                }
+            }
+        }
+
+        // Draw functions
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = ball.color;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Add shine effect
+            ctx.beginPath();
+            ctx.arc(ball.x - 4, ball.y - 4, ball.radius / 3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.fill();
+        }
+
+        function drawPaddle() {
+            ctx.fillStyle = paddle.color;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+
+            // Add gradient effect
+            const gradient = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x, paddle.y + paddle.height);
+            gradient.addColorStop(0, '#66bb6a');
+            gradient.addColorStop(1, '#388e3c');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+
+            // Add border
+            ctx.strokeStyle = '#2e7d32';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        }
+
+        function drawBlocks() {
+            for (let block of blocks) {
+                if (block.destroyed) continue;
+
+                // Create gradient for each block
+                const gradient = ctx.createLinearGradient(block.x, block.y, block.x, block.y + block.height);
+                gradient.addColorStop(0, block.color);
+                gradient.addColorStop(1, darkenColor(block.color, 0.3));
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(block.x, block.y, block.width, block.height);
+
+                // Add border
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(block.x, block.y, block.width, block.height);
+            }
+        }
+
+        function darkenColor(color, factor) {
+            const hex = color.replace('#', '');
+            const r = Math.floor(parseInt(hex.substring(0, 2), 16) * (1 - factor));
+            const g = Math.floor(parseInt(hex.substring(2, 4), 16) * (1 - factor));
+            const b = Math.floor(parseInt(hex.substring(4, 6), 16) * (1 - factor));
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        // Game loop
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameRunning) {
+                // Update ball position
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+
+                // Handle collisions
+                handleWallCollisions();
+                handlePaddleCollision();
+                handleBlockCollisions();
+            }
+
+            // Update paddle position
+            updatePaddle();
+
+            // Draw everything
+            drawBlocks();
+            drawPaddle();
+            drawBall();
+
+            // Check if all blocks are destroyed
+            if (blocks.every(block => block.destroyed)) {
+                createBlocks();
+                // Increase ball speed slightly
+                ball.vx *= 1.1;
+                ball.vy *= 1.1;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize game
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Set initial size
+        createBlocks();
+        gameLoop();
+
+        // Event listeners for keyboard input
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return; // Don't respond to keys when game is paused
+
+            switch (e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    keys.left = true;
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    keys.right = true;
+                    break;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            switch (e.key) {
+                case 'ArrowLeft':
+                    keys.left = false;
+                    break;
+                case 'ArrowRight':
+                    keys.right = false;
+                    break;
+            }
+        });
+
+        // Touch event listeners for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            if (!gameRunning) return;
+            e.preventDefault();
+            isTouching = true;
+            const touch = e.touches[0];
+            lastTouchX = touch.clientX;
+            handleTouchMove(touch.clientX);
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!gameRunning || !isTouching) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            lastTouchX = touch.clientX;
+            handleTouchMove(touch.clientX);
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            isTouching = false;
+        }, { passive: false });
+
+        // Prevent scrolling when touching the canvas
+        canvas.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            isTouching = false;
+        }, { passive: false });
+    </script>
+</body>
+
+</html>
